@@ -11,12 +11,12 @@ from torch.autograd import Variable
 def train_pixel(params):
     time_start = time.time()
 
-    pixel_no, dim_in, x, x_valid, y, y_valid = params
+    pixel_no, dim_in, x, x_valid, y, y_valid, neuron_count = params
 
     # logging.info("Training pixel {:6d}: Checksums {:6d} {:20.16e} {:20.16e} {:20.16e} {:20.16e}".format(pixel_no, dim_in, torch.sum(x), torch.sum(x_valid), torch.sum(y[:,pixel_no]), torch.sum(y_valid[:,pixel_no])))
 
     # define neural network
-    neuron_count = 3
+    
 
     model = torch.nn.Sequential(
         torch.nn.Linear(dim_in, neuron_count),
@@ -38,14 +38,20 @@ def train_pixel(params):
 
     # -----------------------------------------------------------------------------
     # train the neural network
-    while count < 5:  # Yuan-Sen set this to 20
-
-        # -----------------------------------------------------------------------------
-        # check convergence
+    while count < 3:  # Yuan-Sen set this to 20
 
         # training
         y_pred = model(x)[:, 0]
         loss = ((y_pred - y[:,pixel_no]).pow(2) / (0.01 ** 2)).mean()
+
+        # optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        t += 1
+
+        # -----------------------------------------------------------------------------
+        # check convergence
 
         # Set number of iterations of optimizer to run between checking progress.
         if t % 5000 == 0:
@@ -55,10 +61,14 @@ def train_pixel(params):
             loss_valid = (((y_pred_valid - y_valid[:,pixel_no]).pow(2)
                            / (0.01 ** 2)).mean()).item()
 
-            if (loss_valid > current_loss) or (np.isclose(a=loss_valid, b=current_loss, rtol=2e-4, atol=1e-10)):
+
+            if (loss_valid > current_loss) or (np.isclose(a=loss_valid, b=current_loss, rtol=1e-2, atol=1e-10)):
                 count += 1
             else:
                 count = 0
+
+            #logging.info("Pixel {:6d}: Current {:24.17e}. Best {:24.17e}. Iteration {:10d}. Counter {:3d}.".format(pixel_no, loss_valid,  current_loss, t, count))
+
 
             if loss_valid < current_loss:
                 # record the best loss
@@ -69,26 +79,22 @@ def train_pixel(params):
                 for param in model.parameters():
                     model_numpy.append(param.data.numpy())
 
-            # logging.info("Pixel {:6d}: Current {:24.17e}. Best {:24.17e}. Iteration {:10d}. Counter {:3d}.".format(pixel_no, loss_valid, current_loss, t, count))
-
         # -----------------------------------------------------------------------------
-        # optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        t += 1
+
 
     # -----------------------------------------------------------------------------
     # return parameters
     time_end = time.time()
-    logging.info("Pixel {:6d} trained in {:9d} steps and {:6.1f} seconds".format(pixel_no, t, time_end - time_start))
+    oc = (y_pred_valid - y_valid[:, pixel_no]).abs().mean().item()
+    logging.info("Pixel {:6d} trained in {:9d} steps and {:6.1f} seconds, o-c: {:6.5f}".format(pixel_no, t, time_end - time_start, oc))
+
 
     return model_numpy
 
     # =============================================================================
 
 
-def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, normalized_ivar, dispersion):
+def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, normalized_ivar, dispersion, neuron_count):
     """
     Train the neural network
 
@@ -169,7 +175,7 @@ def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, 
 
     # train in parallel
     with Pool(num_CPU) as pool:
-      net_array = pool.map(train_pixel, [[i, dim_in, x, x_valid, y, y_valid]
+      net_array = pool.map(train_pixel, [[i, dim_in, x, x_valid, y, y_valid, neuron_count]
                                          for i in range(pixel_start, pixel_end)])
 
     # train in serial mode

@@ -25,8 +25,8 @@ class PayneInstanceTing(object):
     loaded from 4GP SpectrumLibrary objects.
     """
 
-    def __init__(self, training_set, label_names, training_data_archive,
-                 censors=None, threads=None, batch_number=0, batch_count=1,
+    def __init__(self, training_set, label_names, training_data_archive, load_from_archive=False, neuron_count=10,
+                 censors=None, threads=None, batch_number=0, batch_count=1, 
                  debugging=False):
         """
         Instantiate the Payne and train it on the spectra contained within a SpectrumArray.
@@ -41,6 +41,9 @@ class PayneInstanceTing(object):
         :param threads:
             The number of CPU cores we should use. If None, we look up how many cores this computer has.
 
+        :param neuron_count:
+            The number of neurons in each of the NN layers.
+
         :param batch_number:
             If training pixels in multiple batches on different machines, then this is the number of the batch of pixels
             we are to train. It should be in the range 0 .. batch_count-1 inclusive.
@@ -52,6 +55,9 @@ class PayneInstanceTing(object):
             The filename of a directory where we store the internal state of a pre-trained neural network, which we
             reload when we want to test the Payne. Each batch of pixels stores its weights in a separate file, so that
             we can bring together the trained pixels from many different nodes of a cluster.
+
+        :param load_from_archive:
+            We load the pretrained Payne from training_data_archive rather than doing training from scratch.
 
         :param debugging:
             Boolean flag determining whether we produce debugging output
@@ -78,6 +84,8 @@ class PayneInstanceTing(object):
             threads = cpu_count()
         self.threads = threads
 
+        logging.info("Number of threads used: {:04d}".format(self.threads))
+
         # Turn error bars on fluxes into inverse variances
         inverse_variances = training_set.value_errors ** (-2)
 
@@ -101,29 +109,32 @@ class PayneInstanceTing(object):
         training_label_values = np.array([[training_set.get_metadata(index)[label] for label in label_names]
                                            for index in range(len(training_set))])
 
-        # If we need to train a batch of pixels, do that now
-        if batch_number >= 0:
-            logging.info("Starting to train the Payne")
-            training_data_batch = train_nn(
-                threads=threads,
-                batch_number=batch_number,
-                batch_count=batch_count,
-                labelled_set=training_label_values,
-                normalized_flux=training_set.values,
-                normalized_ivar=inverse_variances,
-                dispersion=training_set.wavelengths
-            )
+        if not load_from_archive:
+            # If we need to train a batch of pixels, do that now
+            if batch_number >= 0:
+                logging.info("Starting to train the Payne")
+                training_data_batch = train_nn(
+                    threads=threads,
+                    batch_number=batch_number,
+                    batch_count=batch_count,
+                    labelled_set=training_label_values,
+                    normalized_flux=training_set.values,
+                    normalized_ivar=inverse_variances,
+                    dispersion=training_set.wavelengths,
+                    neuron_count=neuron_count
+                )
 
-            # Save weights of neural network
-            logging.info("Payne training completed")
-            os.system("mkdir -p {}".format(training_data_archive))
+                # Save weights of neural network
+                logging.info("Payne training completed")
+                os.system("mkdir -p {}".format(training_data_archive))
 
-            logging.info("Saving Payne to disk")
-            batch_pickle_filename = os.path.join(training_data_archive,
-                                                 "batch_{:04d}_of_{:04d}.pkl".format(batch_number, batch_count))
-            with open(batch_pickle_filename, "wb") as f:
-                pickle.dump(training_data_batch, f)
-            logging.info("Saving completed")
+                logging.info("Saving Payne to disk")
+                batch_pickle_filename = os.path.join(training_data_archive,
+                                                     "batch_{:04d}_of_{:04d}.pkl".format(batch_number, batch_count))
+                with open(batch_pickle_filename, "wb") as f:
+                    pickle.dump(training_data_batch, f)
+                logging.info("Saving completed")
+
 
         # Reload training data from all batches in preparation for testing
         logging.info("Loading Payne from disk")
@@ -147,6 +158,7 @@ class PayneInstanceTing(object):
         del payne_batches  # Free up memory
 
         logging.info("Payne batches merged successfully")
+
 
     def fit_spectrum(self, spectrum):
         """

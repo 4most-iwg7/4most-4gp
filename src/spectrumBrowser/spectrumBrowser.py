@@ -14,6 +14,7 @@ import argparse
 import glob
 import json
 import io
+import os
 import numpy as np
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -55,7 +56,7 @@ def library_index():
     # For each library, look up how many spectra are inside it, and create a dictionary of properties
     library_info = []
     for item in libraries:
-        if os_path.isdir(item):
+        if os_path.isdir(item) and os.path.exists(item+'/index.db'):
             name = os_path.split(item)[1]
             x = SpectrumLibrarySqlite(path=item)
             library_info.append({

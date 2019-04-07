@@ -38,7 +38,7 @@ def train_pixel(params):
 
     # -----------------------------------------------------------------------------
     # train the neural network
-    while count < 3:  # Yuan-Sen set this to 20
+    while count < 5:  # Yuan-Sen set this to 20
 
         # training
         y_pred = model(x)[:, 0]
@@ -62,7 +62,7 @@ def train_pixel(params):
                            / (0.01 ** 2)).mean()).item()
 
 
-            if (loss_valid > current_loss) or (np.isclose(a=loss_valid, b=current_loss, rtol=1e-2, atol=1e-10)):
+            if (loss_valid > current_loss) or (np.isclose(a=loss_valid, b=current_loss, rtol=1e-3, atol=1e-10)):
                 count += 1
             else:
                 count = 0

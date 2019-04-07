@@ -88,8 +88,8 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
     b_array_0 = payne_status["b_array_0"]
     b_array_1 = payne_status["b_array_1"]
     b_array_2 = payne_status["b_array_2"]
-    x_min = payne_status["x_min"]
-    x_max = payne_status["x_max"]
+    x_min = payne_status["x_min"][:10]
+    x_max = payne_status["x_max"][:10]
 
     # =======================================================================
     # make spectroscopic mask

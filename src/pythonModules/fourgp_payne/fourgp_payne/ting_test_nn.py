@@ -53,11 +53,35 @@ def fit_spectrum(params):
     bounds[:, 0] = -0.5
     bounds[:, 1] = 0.5
 
+    '''
+    kwds = {
+        "f": fit_func,
+        "xdata": None,
+        "ydata": spectrum,
+        "sigma": spectrum_errors,
+        "absolute_sigma": True,
+        "p0": p0_test,
+
+        # These get passed through to leastsq:
+        #"Dfun": Dfun,
+        "col_deriv": True,
+        "ftol": 7./3 - 4./3 - 1, # Machine precision.
+        "xtol": 7./3 - 4./3 - 1, # Machine precision.
+        "gtol": 0.0,
+        "maxfev": 100000, # MAGIC
+        "epsfcn": None,
+        "factor": 0.1, # Smallest step size available for gradient approximation
+        "diag": 1.0/(x_max-x_min)
+    }
+    '''
+
+
     try:
         popt, pcov = curve_fit(fit_func, [spec_no], spectrum,
                                p0=p0_test,
                                sigma=spectrum_errors,
                                absolute_sigma=True, bounds=bounds.T)
+        #popt, pcov = curve_fit(**kwds)
         uncertainties = np.sqrt(np.diag(pcov))
     except RuntimeError:
         logging.info("!!! Fitting failed")
@@ -92,7 +116,6 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
     x_min = payne_status["x_min"][:num_labels]
     x_max = payne_status["x_max"][:num_labels]
 
-
     # =======================================================================
     # make spectroscopic mask
 
@@ -103,9 +126,8 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
     params = [num_labels, Y_u_all, Y_u_all_err, censors['[Fe/H]'], x_min, x_max, w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2]
 
     # Fitting in parallel
-    with Pool(num_CPU) as pool:
-        recovered_results = np.array(pool.map(fit_spectrum,
-                                              [[i]+params for i in range(Y_u_all.shape[1])])).T
+    
+    recovered_results = np.array(fit_spectrum([0]+params)).T
 
     # Fitting in serial
     # recovered_results = []
@@ -120,27 +142,29 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
     uncertainties = []
 
     # loop over all spectra
-    for j in range(recovered_results.shape[1]):
-        labels = recovered_results[:num_labels, j]
-        ind_invalid = (labels < -100.)
-        labels = (labels + 0.5) * (x_max - x_min) + x_min
-        labels[ind_invalid] = -999.
-        results.append(labels)
+    j = 0
+    #for j in range(recovered_results.shape[1]):
 
-        uncert = recovered_results[num_labels:, j]
-        uncert = (uncert) * (x_max - x_min)
-        uncertainties.append(uncert)
+    labels = recovered_results[:num_labels]
+    ind_invalid = (labels < -100.)
+    labels = (labels + 0.5) * (x_max - x_min) + x_min
+    labels[ind_invalid] = -999.
+    results.append(labels)
 
-        predict_flux = w_array_2 * sigmoid_def(np.sum(w_array_1 * (sigmoid_def(np.dot(
-            w_array_0, recovered_results[:num_labels, j]) + b_array_0)), axis=1) + b_array_1) \
-                       + b_array_2
+    uncert = recovered_results[num_labels:]
+    uncert = (uncert) * (x_max - x_min)
+    uncertainties.append(uncert)
 
-        # radial velocity
-        # f_interp = interpolate.interp1d(wavelength_template, predict_flux,
-        #                                 bounds_error=False, kind="linear", fill_value="extrapolate")
-        # predict_flux = f_interp(wavelength_template \
-        #                         + recovered_results[-1, j] * wavelength_template / 10 ** 5)
-        chi2.append(np.mean((predict_flux - Y_u_all[:, j]) ** 2 * (Y_u_all_err[:, j])))
+    predict_flux = w_array_2 * sigmoid_def(np.sum(w_array_1 * (sigmoid_def(np.dot(
+        w_array_0, recovered_results[:num_labels]) + b_array_0)), axis=1) + b_array_1) \
+                   + b_array_2
+
+    # radial velocity
+    # f_interp = interpolate.interp1d(wavelength_template, predict_flux,
+    #                                 bounds_error=False, kind="linear", fill_value="extrapolate")
+    # predict_flux = f_interp(wavelength_template \
+    #                         + recovered_results[-1, j] * wavelength_template / 10 ** 5)
+    chi2.append(np.mean((predict_flux - Y_u_all[:, j]) ** 2 * (Y_u_all_err[:, j])))
 
     if False:
         import matplotlib

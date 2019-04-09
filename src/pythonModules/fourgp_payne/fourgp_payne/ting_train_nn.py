@@ -85,11 +85,11 @@ def train_pixel(params):
     # -----------------------------------------------------------------------------
     # return parameters
     time_end = time.time()
-    oc = (y_pred_valid - y_valid[:, pixel_no]).abs().mean().item()
+    oc = ((y_pred_valid - y_valid[:, pixel_no])**2).mean().item()
     logging.info("Pixel {:6d} trained in {:9d} steps and {:6.1f} seconds, o-c: {:6.5f}".format(pixel_no, t, time_end - time_start, oc))
 
-
-    return model_numpy
+    
+    return [model_numpy, oc]
 
     # =============================================================================
 
@@ -177,19 +177,19 @@ def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, 
     with Pool(num_CPU) as pool:
       net_array = pool.map(train_pixel, [[i, dim_in, x, x_valid, y, y_valid, neuron_count]
                                          for i in range(pixel_start, pixel_end)])
-
     # train in serial mode
     # net_array = []
     # for i in range(pixel_start, pixel_end):
     #     net_array.append(train_pixel([i, dim_in, x, x_valid, y, y_valid]))
 
     # extract parameters
-    w_array_0 = np.array([net_array[i][0] for i in range(len(net_array))])
-    b_array_0 = np.array([net_array[i][1] for i in range(len(net_array))])
-    w_array_1 = np.array([net_array[i][2][0] for i in range(len(net_array))])
-    b_array_1 = np.array([net_array[i][3][0] for i in range(len(net_array))])
-    w_array_2 = np.array([net_array[i][4][0][0] for i in range(len(net_array))])
-    b_array_2 = np.array([net_array[i][5][0] for i in range(len(net_array))])
+    w_array_0 = np.array([net_array[i][0][0] for i in range(len(net_array))])
+    b_array_0 = np.array([net_array[i][0][1] for i in range(len(net_array))])
+    w_array_1 = np.array([net_array[i][0][2][0] for i in range(len(net_array))])
+    b_array_1 = np.array([net_array[i][0][3][0] for i in range(len(net_array))])
+    w_array_2 = np.array([net_array[i][0][4][0][0] for i in range(len(net_array))])
+    b_array_2 = np.array([net_array[i][0][5][0] for i in range(len(net_array))])
+    s2 = np.array([net_array[i][1] for i in range(len(net_array))])
 
     # save parameters and remember how we scale the labels
     return {
@@ -199,6 +199,7 @@ def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, 
         'b_array_0': b_array_0,
         'b_array_1': b_array_1,
         'b_array_2': b_array_2,
+        's2': s2,
         'x_max': x_max,
         'x_min': x_min
     }

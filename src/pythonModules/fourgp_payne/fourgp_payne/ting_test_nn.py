@@ -18,14 +18,18 @@ def sigmoid_def(z):
 # ---------------------------------------------------------------------------
 # define function to perform testing step in batch
 def fit_spectrum(params):
-    spec_no, num_labels, Y_u_all, Y_u_all_err, censor_mask, x_min, x_max, w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2 = params
+    spec_no, num_labels, Y_u_all, Y_u_all_err, censor_mask, x_min, x_max, w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, s2 = params
 
     # Fudge an offset due to Payne spiking at the left edge of wav. range - NO LONGER NEEDED so set to 0
     fudge_offset = 0
 
     # Deal with pixels which are nan    
     spectrum = Y_u_all[:, spec_no][censor_mask][fudge_offset:]
-    spectrum_errors = np.sqrt(1./Y_u_all_err[:, spec_no][censor_mask][fudge_offset:]) # we need sigma here, not 1/sigma^2
+    #spectrum_errors = np.sqrt(1./Y_u_all_err[:, spec_no][censor_mask][fudge_offset:]) # we need sigma here, not 1/sigma^2
+
+    adjusted_ivar = Y_u_all_err[:, spec_no]/(1. + Y_u_all_err[:, spec_no] * s2)
+    spectrum_errors = np.sqrt(1.0/adjusted_ivar)[censor_mask][fudge_offset:]
+
     bad_pixels = np.isnan(spectrum * spectrum_errors)
     spectrum[bad_pixels] = 1.
     spectrum_errors[bad_pixels] = 9999.
@@ -90,7 +94,6 @@ def fit_spectrum(params):
 
     return np.concatenate([popt, uncertainties])
 
-
 def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors, censors):
     # set number of threads per CPU
     os.environ['OMP_NUM_THREADS'] = '{:d}'.format(1)
@@ -113,6 +116,7 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
     b_array_0 = payne_status["b_array_0"]
     b_array_1 = payne_status["b_array_1"]
     b_array_2 = payne_status["b_array_2"]
+    s2 = payne_status["s2"]
     x_min = payne_status["x_min"][:num_labels]
     x_max = payne_status["x_max"][:num_labels]
 
@@ -123,7 +127,10 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
 
     # ============================================================================
     # fit spectra
-    params = [num_labels, Y_u_all, Y_u_all_err, censors['[Fe/H]'], x_min, x_max, w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2]
+    params = [num_labels, Y_u_all, Y_u_all_err, censors['[Fe/H]'], x_min, x_max, w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, s2]
+
+    #print(np.sqrt(1./Y_u_all_err[:, 0]))
+    #print(np.sqrt(s2))
 
     # Fitting in parallel
     
@@ -171,8 +178,8 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
         # matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(12, 8), dpi=200)
-        plt.plot(Y_u_all[:, j], color='black')
-        plt.plot(predict_flux, color='red')
+        plt.plot(Y_u_all[:, j][censors['[Fe/H]']], color='black')
+        plt.plot(predict_flux[censors['[Fe/H]']], color='red')
         plt.show()
     chi2 = np.array(chi2)
 

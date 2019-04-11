@@ -136,7 +136,7 @@ def train_nn(threads, batch_number, batch_count, labelled_set, normalized_flux, 
     # ------------------------------------------------------------------------------
     # Rearrange storage of training data in memory to be [pixel_n][spectrum_id]
     # This means that training each pixel involves data stored sequentially in memory!
-    normalized_flux = normalized_flux.T[censors['[Fe/H]']].copy().T
+    normalized_flux = normalized_flux.T.copy().T
 
     # ==============================================================================
     # restore training spectra

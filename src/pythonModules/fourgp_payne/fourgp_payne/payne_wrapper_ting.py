@@ -121,7 +121,8 @@ class PayneInstanceTing(object):
                     normalized_flux=training_set.values,
                     normalized_ivar=inverse_variances,
                     dispersion=training_set.wavelengths,
-                    neuron_count=neuron_count
+                    neuron_count=neuron_count,
+                    censors=censors
                 )
 
                 # Save weights of neural network

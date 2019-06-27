@@ -161,7 +161,7 @@ class PayneInstanceTing(object):
         logging.info("Payne batches merged successfully")
 
 
-    def fit_spectrum(self, spectrum, censors):
+    def fit_spectrum(self, spectrum, censors, ref_labels):
         """
         Fit stellar labels to a continuum-normalised spectrum.
 
@@ -196,7 +196,8 @@ class PayneInstanceTing(object):
             num_labels=len(self._label_names),
             test_spectra=np.array([spectrum.values]),  # We are testing spectra one at a time, but wrapper allowing parallel testing
             test_spectra_errors=np.array([inverse_variances]),
-            censors=censors
+            censors=censors,
+            ref_labels=ref_labels
         )
 
         return fit_data

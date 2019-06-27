@@ -94,7 +94,7 @@ def fit_spectrum(params):
 
     return np.concatenate([popt, uncertainties])
 
-def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors, censors):
+def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors, censors, ref_labels):
     # set number of threads per CPU
     os.environ['OMP_NUM_THREADS'] = '{:d}'.format(1)
 
@@ -166,6 +166,13 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
         w_array_0, recovered_results[:num_labels]) + b_array_0)), axis=1) + b_array_1) \
                    + b_array_2
 
+
+
+    ref_labels = (ref_labels - x_min) / (x_max - x_min) - 0.5
+    ref_labels[3:] = (x_min + (x_max - x_min)/2.)[3:]
+    predict_ref_flux = w_array_2 * sigmoid_def(np.sum(w_array_1 * (sigmoid_def(np.dot(
+        w_array_0, ref_labels) + b_array_0)), axis=1) + b_array_1) \
+                   + b_array_2
     # radial velocity
     # f_interp = interpolate.interp1d(wavelength_template, predict_flux,
     #                                 bounds_error=False, kind="linear", fill_value="extrapolate")
@@ -178,8 +185,9 @@ def test_nn(payne_status, threads, num_labels, test_spectra, test_spectra_errors
         # matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         fig = plt.figure(figsize=(12, 8), dpi=200)
-        plt.plot(Y_u_all[:, j][censors['[Fe/H]']], color='black')
-        plt.plot(predict_flux[censors['[Fe/H]']], color='red')
+        plt.plot(Y_u_all[:, j][censors['[Fe/H]']], color='black', lw=0.5)
+        plt.plot(predict_flux[censors['[Fe/H]']], color='red', lw=0.5)
+        plt.plot(predict_ref_flux[censors['[Fe/H]']], color='blue', lw=0.5)
         plt.show()
     chi2 = np.array(chi2)
 

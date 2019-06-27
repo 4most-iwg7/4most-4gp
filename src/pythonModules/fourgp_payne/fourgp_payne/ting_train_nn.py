@@ -86,7 +86,7 @@ def train_pixel(params):
     # return parameters
     time_end = time.time()
     oc = ((y_pred_valid - y_valid[:, pixel_no])**2).mean().item()
-    logging.info("Pixel {:6d} trained in {:9d} steps and {:6.1f} seconds, o-c: {:6.5f}".format(pixel_no, t, time_end - time_start, oc))
+    logging.info("Pixel {:6d} trained in {:9d} steps and {:6.1f} seconds, o-c: {:6.10f}".format(pixel_no, t, time_end - time_start, oc))
 
     
     return [model_numpy, oc]

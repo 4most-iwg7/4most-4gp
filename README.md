@@ -1,6 +1,6 @@
 THIS REPOSITORY IS CURRENTLY ARCHIVED. It was moved and is actively developed in the 4MOST gitlab.
 
-<br/>
+<hr />
 
 The text on this page is a brief introduction to `4most-4gp`. For a more
 complete tutorial, please visit the
